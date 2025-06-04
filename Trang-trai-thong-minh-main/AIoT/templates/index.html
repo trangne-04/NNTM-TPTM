@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HỆ THỐNG IOT</title>
+    <link rel="icon" type="image/x-icon" href="https://i.imgur.com/ST4qhSS_d.webp?maxwidth=760&fidelity=grand">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        h1 {
+            text-align: center;
+            color: #1a73e8;
+            padding: 20px 0;
+            font-size: 2.5em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        h3 {
+            color: #1a73e8;
+            margin-bottom: 10px;
+            font-size: 1.4em;
+        }
+
+        .video-container {
+            width: 100%;
+            max-width: 800px;
+            margin: 20px auto;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .video-container img {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+        }
+
+        .container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .card {
+            width: 300px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .status {
+            font-size: 1.1em;
+            margin: 8px 0;
+            color: #555;
+        }
+
+        .status b {
+            color: #1a73e8;
+        }
+
+        .control-section {
+            padding: 20px;
+            text-align: center;
+        }
+
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 8px;
+            font-size: 1em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        button:hover {
+            background-color: #1557b0;
+            transform: scale(1.05);
+        }
+
+        .warning {
+            display: none;
+            color: #d93025;
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-top: 10px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>📡HỆ THỐNG QUẢN LÝ TRANG TRẠI THÔNG MINH</h1>
+    <div class="video-container">
+        <img src="/video_feed" alt="ESP32-CAM Stream">
+    </div>
+    <div class="container">
+        <div class="card">
+            <h3>UNO 1</h3>
+            <p class="status">⏳ <b>Thời gian:</b> <span id="uno1_time">--:--:--</span></p>
+            <p class="status">💡 <b>LDR:</b> <span id="uno1_ldr">Đang chờ...</span></p>
+            <p class="status">🔦 <b>LED:</b> <span id="uno1_led">Đang chờ...</span></p>
+            <p class="status">⚙️ <b>Động cơ bước:</b> <span id="uno1_motor">Đang chờ...</span></p>
+        </div>
+        <div class="card">
+            <h3>UNO 2</h3>
+            <p class="status">🌡️ <b>Nhiệt độ:</b> <span id="uno2_temp">Đang chờ...</span>°C</p>
+            <p class="status">💧 <b>Độ ẩm:</b> <span id="uno2_hum">Đang chờ...</span>%</p>
+            <p class="status">📏 <b>Mực nước:</b> <span id="uno2_water">Đang chờ...</span></p>
+            <p class="status">🔄 <b>Máy bơm:</b> <span id="uno2_status">Đang chờ...</span></p>
+        </div>
+        <div class="card">
+            <h3>UNO 3</h3>
+            <p class="status">💨 <b>Nồng độ khí:</b> <span id="uno3_gas">Đang chờ...</span></p>
+            <p class="warning" id="gas_warning">⚠️ CẢNH BÁO: Nồng độ khí vượt ngưỡng!</p>
+        </div>
+    </div>
+
+    <div class="control-section">
+        <h1>⚙️ Điều Khiển</h1>
+        <button onclick="startVoiceControl()">🎙️ NÓI ZÔ ĐÂY</button>
+        <button onclick="socket.emit('control', { command: 'LED_ON' })">💡 Bật Đèn</button>
+        <button onclick="socket.emit('control', { command: 'LED_OFF' })">💡 Tắt Đèn</button>
+        <button onclick="socket.emit('control', { command: 'PUMP_ON' })">💦 Bật Bơm</button>
+        <button onclick="socket.emit('control', { command: 'PUMP_OFF' })">💦 Tắt Bơm</button>
+        <button onclick="socket.emit('control', { command: 'FEED_START' })">🐷 Cho ăn</button>
+        <button onclick="socket.emit('control', { command: 'FEED_STOP' })">🐷 Ngừng ăn</button>
+        <button onclick="socket.emit('control', { command: 'AUTO' })">🔄 Tự Động</button>
+        <p class="status"><b>Kết quả:</b> <span id="voice-result">Chưa nhận diện</span></p>
+    </div>
+
+    <script>
+        const socket = io.connect('http://' + document.domain + ':' + location.port);
+
+        socket.on('sensor_update', function (data) {
+            console.log("📡 Cập nhật dữ liệu:", data);
+
+            // Xử lý dữ liệu từ UNO 1
+            if (data.uno1) {
+                let parts = data.uno1.match(/(\d{2}:\d{2}:\d{2})\|LDR:(\d+)\|LED:(\d)\|M:(\d)/);
+                if (parts) {
+                    document.getElementById('uno1_time').innerText = parts[1];
+                    document.getElementById('uno1_ldr').innerText = parts[2];
+                    document.getElementById('uno1_led').innerText = parts[3] === "0" ? "Tắt" : "Bật";
+                    document.getElementById('uno1_motor').innerText = parts[4] === "0" ? "Tắt" : "Bật";
+                } else {
+                    document.getElementById('uno1_time').innerText = "Chưa có dữ liệu";
+                    document.getElementById('uno1_ldr').innerText = "Chưa có dữ liệu";
+                    document.getElementById('uno1_led').innerText = "Chưa có dữ liệu";
+                    document.getElementById('uno1_motor').innerText = "Chưa có dữ liệu";
+                    console.warn("⚠️ Dữ liệu UNO 1 không đúng định dạng:", data.uno1);
+                }
+            }
+
+            // Xử lý dữ liệu từ UNO 2
+            if (data.uno2) {
+                let values = data.uno2.split(',');
+                if (values.length >= 4) {
+                    document.getElementById('uno2_temp').innerText = values[0];
+                    document.getElementById('uno2_hum').innerText = values[1];
+                    document.getElementById('uno2_water').innerText = values[2];
+                    document.getElementById('uno2_status').innerText = values[3] === "1" ? "Hoạt động" : "Tắt";
+                }
+            }
+
+            // Xử lý dữ liệu từ UNO 3
+            if (data.uno3) {
+                let gasMatch = data.uno3.match(/Gas:(\d+)/);
+                if (gasMatch) {
+                    let gasValue = parseInt(gasMatch[1]);
+                    document.getElementById('uno3_gas').innerText = gasValue;
+                    document.getElementById('gas_warning').style.display = gasValue > 70 ? 'block' : 'none';
+                } else {
+                    document.getElementById('uno3_gas').innerText = "Không có dữ liệu";
+                    document.getElementById('gas_warning').style.display = 'none';
+                }
+            }
+        });
+
+        function startVoiceControl() {
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'vi-VN';
+            recognition.onresult = function (event) {
+                const command = event.results[0][0].transcript.toLowerCase();
+                document.getElementById('voice-result').innerText = command;
+
+                if (command.includes('bật đèn')) {
+                    socket.emit('control', { command: 'LED_ON' });
+                } else if (command.includes('tắt đèn')) {
+                    socket.emit('control', { command: 'LED_OFF' });
+                } else if (command.includes('tự động')) {
+                    socket.emit('control', { command: 'AUTO' });
+                } else if (command.includes('cho ăn')) {
+                    socket.emit('control', { command: 'FEED_START' });
+                } else if (command.includes('ngừng ăn')) {
+                    socket.emit('control', { command: 'FEED_STOP' });
+                } else if (command.includes('bật bơm')) {
+                    socket.emit('control', { command: 'PUMP_ON' });
+                } else if (command.includes('tắt bơm')) {
+                    socket.emit('control', { command: 'PUMP_OFF' });
+                }
+            };
+            recognition.onerror = function (event) {
+                document.getElementById('voice-result').innerText = 'Lỗi: ' + event.error;
+            };
+            recognition.start();
+        }
+    </script>
+</body>
+
+</html>
